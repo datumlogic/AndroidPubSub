@@ -1,0 +1,21 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <item
+        android:id="@+id/action_newnode"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_newnode"/>
+    
+    <item
+        android:id="@+id/action_subscribe"
+        android:orderInCategory="101"
+        android:showAsAction="never"
+        android:title="@string/action_subscribe"/>
+    
+    <item
+        android:id="@+id/action_feed"
+        android:orderInCategory="101"
+        android:showAsAction="never"
+        android:title="@string/action_feed"/>
+
+</menu>

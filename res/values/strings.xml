@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="publish_name">Publish a Shout-out</string>
+    <string name="action_publish">Publish a Shout-out</string>
+    <string name="subscribe_name">Subscribe to a Category</string>
+    <string name="action_subscribe">Subscribe to a Category</string>
+    <string name="feed_name">TribeMash Feed</string>
+    <string name="action_feed">TribeMash Feed</string>
+    <string name="action_newnode">Create a Category</string>
+    <string name="app_name">AndroidPubSub</string>
+    <string name="initTxtView">AndroidPubSub Console Output:</string>
+     <string name="subscribedState">Subscribed state</string>
+
+</resources>
