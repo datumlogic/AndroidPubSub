@@ -1,13 +1,17 @@
 TO DO:
 --------------------------------------------------------------------------------------------------
-I finished by adding the Count to the onCreate method, so that the number of published items 
-is displayed for each node.
+The Publish screen now works adequately .
 
-I need to complete this by adding functionality to the publishNode method so that the list 
-is refreshed and the count is updated.
+The Subscribe screen now has the UI elements (red/green balls) to indicate subscribed/unsubscribed, but
+the subscribed state is not being retrieved from the server; I hope only basic event handling enabled to 
+show the UI working.
 
-NOTE-
-I also found defects- can not delete or add more than one- has to do with how I amend the count to the name I believe.
-use a custom array adapter and display the count separately.
+To complete this prototype I need to:
+
+1. query the server to see which nodes are subscribed (event?)
+
+2. complete the Feed screen to display published items
+
+3. make the published schema more dynamic 
 
 
