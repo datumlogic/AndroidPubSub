@@ -58,6 +58,10 @@ public class PublishActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_publish);
+		//This app on the Android desktop always automatically gets the name of the first Activity 
+		//Remove the android:label for the first activity, which forces the android:label of the app to be used
+		//Finally., set the Activity Title here
+		setTitle(R.string.publish_name);
 		
 		//if you don't use this you get a ClassCastException: UnparsedResultIQ cannot be cast to DiscoverInfo
 		SmackAndroid.init(this);
@@ -234,10 +238,8 @@ public class PublishActivity extends Activity {
 	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	          LeafNode node =  mgr.getNode(fNode);
 	          
-	          //node.send(new PayloadItem("test" + System.currentTimeMillis(), 
-	     	  //	     new SimplePayload("Value", "pubsub:" + fNode + ":Value", fVal)));
-	          
-	          SimplePayload payload = new SimplePayload("review","pubsub:test:review", "<book xmlns='pubsub:test:review'><rating>" + fVal + "</rating><description>" +  fVal2 + "</description></book>");
+	          //create payload
+	          SimplePayload payload = new SimplePayload("review","pubsub:test:review", "<book xmlns='pubsub:test:review'><rating type='choice' length='3'>" + fVal + "</rating><description type='' length='' validation='regex'>" +  fVal2 + "</description></book>");
 	          PayloadItem<SimplePayload> item = new PayloadItem<SimplePayload>("test" + System.currentTimeMillis(), payload);
 	          // Publish item
 	          node.publish(item);

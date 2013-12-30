@@ -8,7 +8,7 @@
     <string name="feed_name">TribeMash Feed</string>
     <string name="action_feed">TribeMash Feed</string>
     <string name="action_newnode">Create a Category</string>
-    <string name="app_name">AndroidPubSub</string>
+    <string name="app_name">Android PubSub</string>
     <string name="initTxtView">AndroidPubSub Console Output:</string>
     <string name="subscribedState">Subscribed state</string>
     <string name="action_deleteall">Delete All Categories</string>

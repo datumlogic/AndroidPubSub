@@ -1,9 +1,14 @@
 package com.fezzee.androidpubsub;
 
+/*
+ * This class is the public notification category.
+ */
 public class PubSubNodeItem {
 	private String nodeName;
 	private int itemCount;
 	private int subscriptionState;
+	private String inputXML;//
+	private String payloadXML;
 	
 	public PubSubNodeItem(String nodeName, int itemCount)
 	{
