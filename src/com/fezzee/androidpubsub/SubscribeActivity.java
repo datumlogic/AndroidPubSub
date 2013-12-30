@@ -1,20 +1,22 @@
 package com.fezzee.androidpubsub;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smackx.packet.DiscoverItems;
+import org.jivesoftware.smackx.pubsub.Item;
 import org.jivesoftware.smackx.pubsub.LeafNode;
+import org.jivesoftware.smackx.pubsub.Node;
 import org.jivesoftware.smackx.pubsub.PubSubManager;
+import org.jivesoftware.smackx.pubsub.Subscription;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.ProgressDialog;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -23,10 +25,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.Toast;
 
 public class SubscribeActivity extends Activity {
 	
@@ -48,15 +47,8 @@ public class SubscribeActivity extends Activity {
 
 		     public void onItemClick(AdapterView<?> parentAdapter, View view, int position,
 		                             long id) {
-		    	 //TODO
-		    	 Log.d("SubscribeActivity::listview.onItemClick","CLICKED!");
-		    	 if (listdata.get(position).getSubscription()==R.drawable.unsubscribed)
-		    	 {
-		    		 listdata.get(position).setSubscription(R.drawable.subscribed);
-		    	 } else {
-		    		 listdata.get(position).setSubscription(R.drawable.unsubscribed);
-		    	 }
 		    	 
+		    	 final int fPosition = position;
 		    	 final ProgressDialog dialog2 = ProgressDialog.show(SubscribeActivity.this, "Connecting...", "Please wait...", false);
 			     Thread t = new Thread(new Runnable() {
 			      @Override
@@ -75,6 +67,23 @@ public class SubscribeActivity extends Activity {
 			           // Create a pubsub manager using an existing Connection
 			           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 		    	 
+			           
+				    	 Log.d("SubscribeActivity::listview.onItemClick","CLICKED!");
+				    	 if (listdata.get(fPosition).getSubscription()==R.drawable.unsubscribed)
+				    	 {
+				    		 PubSubNodeItem psnode = listdata.get(fPosition);
+				    		 psnode.setSubscription(R.drawable.subscribed);
+				    		 Node node = mgr.getNode(psnode.getNodeName()) ;    
+				    		 node.subscribe(Constants.USERNAME+"@"+Constants.HOST);      
+				    		
+				    	 } else {
+				    		 PubSubNodeItem psnode = listdata.get(fPosition);
+				    		 psnode.setSubscription(R.drawable.unsubscribed);
+				    		 Node node = mgr.getNode(psnode.getNodeName()) ;    
+				    		 node.unsubscribe(Constants.USERNAME+"@"+Constants.HOST);
+				    	 }
+		    	 
+			           
 		    	       setListAdapter(mgr);
 		    	       
 			         } catch (ClassCastException cce) {
@@ -119,16 +128,33 @@ public class SubscribeActivity extends Activity {
 	           // Create a pubsub manager using an existing Connection
 	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	           
+	           
+	           //first get all nodes
 	           DiscoverItems nodes = mgr.discoverNodes(null);
 	           for (Iterator<DiscoverItems.Item> items = nodes.getItems(); items.hasNext();) {
-	   			LeafNode node = mgr.getNode(items.next().getNode());
-	   			//int count = node.getItems().size();
-	   			final String name = node.getId();
-	   			Log.d("SubscribeActivity::onCreate", "Node '" + name); // + "' Count: " + count
-	   			PubSubNodeItem nodeItem = new PubSubNodeItem(name);
-	   			nodeItem.setSubscription(R.drawable.unsubscribed);
-	   			listdata.add(nodeItem);
+	        	   
+	        	    DiscoverItems.Item i = items.next();
+	   			    final LeafNode node = mgr.getNode(i.getNode());
+	   				final String name = node.getId();
+	   				Log.d("SubscribeActivity::onCreate", "Node '" + name );
+	   				
+	   			    PubSubNodeItem nodeItem = new PubSubNodeItem(name);
+	   			    nodeItem.setSubscription(R.drawable.unsubscribed);
+	   			    
+	   			    //then mark the relevant ones as subscribed
+	 	            List<Subscription> subscriptions = mgr.getSubscriptions();
+	 	            for (Iterator iterator = subscriptions.iterator(); iterator.hasNext();) {
+	 	        	   Subscription subs = (Subscription) iterator.next();
+	 	        	   if (subs.getNode().equals(name)) {
+	 	        		   //Log.i("SUBSCRIPTIONS",subs.toXML());
+	 	        	   	   //Log.i("SUBSCRIPTIONS",subs.getState().toString());
+	 	        	   	   nodeItem.setSubscription(R.drawable.subscribed);
+		   			       break;
+	 	        	   }
+	 	            }
+	 	           listdata.add(nodeItem);
 	           }
+	           
 	           
 	           setListAdapter(mgr);
 	           
@@ -191,10 +217,10 @@ public class SubscribeActivity extends Activity {
         //        android.R.layout.simple_list_item_1,
         //        listdata );
         
-		Log.d("SubscribeActivity::setListAdapter","here 1....");
+		Log.d("SubscribeActivity::setListAdapter","Entered");
         final SubscribeListAdapter adapter = new SubscribeListAdapter(
         		this, R.layout.listitem_subscribe, listdata);
-        Log.d("SubscribeActivity::setListAdapter","here 2....");
+        //Log.d("SubscribeActivity::setListAdapter","here 2....");
         // Add the incoming message to the view
         mHandler.post(new Runnable() {
           public void run() {
@@ -203,5 +229,5 @@ public class SubscribeActivity extends Activity {
           }
         });
          
-	}	
+	}	//end of 'setListAdapter'
 }

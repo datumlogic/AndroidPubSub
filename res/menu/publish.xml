@@ -7,6 +7,12 @@
         android:title="@string/action_newnode"/>
     
     <item
+        android:id="@+id/action_deleteall"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_deleteall"/>
+    
+    <item
         android:id="@+id/action_subscribe"
         android:orderInCategory="101"
         android:showAsAction="never"

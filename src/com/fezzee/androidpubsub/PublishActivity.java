@@ -1,6 +1,7 @@
 package com.fezzee.androidpubsub;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
@@ -11,6 +12,7 @@ import org.jivesoftware.smackx.packet.DiscoverItems;
 import org.jivesoftware.smackx.pubsub.AccessModel;
 import org.jivesoftware.smackx.pubsub.ConfigureForm;
 import org.jivesoftware.smackx.pubsub.FormType;
+import org.jivesoftware.smackx.pubsub.Item;
 import org.jivesoftware.smackx.pubsub.LeafNode;
 import org.jivesoftware.smackx.pubsub.PayloadItem;
 import org.jivesoftware.smackx.pubsub.PubSubManager;
@@ -75,16 +77,16 @@ public class PublishActivity extends Activity {
 		        LinearLayout layout = new LinearLayout(context);
 		        layout.setOrientation(LinearLayout.VERTICAL);
 
-		        final EditText titleBox = new EditText(context);
-		        titleBox.setHint("Value 1");
-		        layout.addView(titleBox);
+		        final EditText reviewBox = new EditText(context);
+		        reviewBox.setHint("Review (1-3)");
+		        layout.addView(reviewBox);
 
 		        final EditText descriptionBox = new EditText(context);
-		        descriptionBox.setHint("Value 2");
+		        descriptionBox.setHint("Description");
 		        layout.addView(descriptionBox);
 		        
 		        //final EditText input = new EditText(PublishActivity.this);
-				String message = "Enter a Node value to publish:";
+				String message = "Enter a Report to Publish:";
 			    
 
 				new AlertDialog.Builder(PublishActivity.this)
@@ -95,9 +97,9 @@ public class PublishActivity extends Activity {
 				         public void onClick(DialogInterface dialog, int whichButton) {
 				             
 				        	 String nodeName = listdata.get((int)idx).getNodeName();
-				             Toast.makeText(PublishActivity.this, "Publish Node: " + nodeName + " [" + titleBox.getText() + " : " + descriptionBox.getText() + "]", Toast.LENGTH_SHORT).show();
+				             Toast.makeText(PublishActivity.this, "Publish Node: " + nodeName + " [" + reviewBox.getText() + " : " + descriptionBox.getText() + "]", Toast.LENGTH_SHORT).show();
 				             
-				             publishNode(nodeName,descriptionBox.getText().toString());
+				             publishNode(nodeName, reviewBox.getText().toString(), descriptionBox.getText().toString());
 				             
 				         }// end of onClick
 				    }) // end of setPositiveButton
@@ -136,12 +138,19 @@ public class PublishActivity extends Activity {
 	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	           
 	           DiscoverItems nodes = mgr.discoverNodes(null);
+	           
 	           for (Iterator<DiscoverItems.Item> items = nodes.getItems(); items.hasNext();) {
-	   			LeafNode node = mgr.getNode(items.next().getNode());
-	   			int count = node.getItems().size();
-	   			final String name = node.getId();
-	   			Log.d("PublishActivity::onCreate", "Node '" + name + "' Count: " + count);
-	   			listdata.add(new PubSubNodeItem(name,count));
+	        	
+	        	    DiscoverItems.Item i = items.next();
+
+	   			    final LeafNode node = mgr.getNode(i.getNode());
+	   			
+	   				Collection<? extends Item> items2 = node.getItems();
+	   				int count = items2.size();
+	   				final String name = node.getId();
+	   				Log.d("PublishActivity::onCreate", "Node '" + name + "' Count: " + count);
+	   				listdata.add(new PubSubNodeItem(name,count));
+	   				
 	           }
 	           
 	           setListAdapter(mgr);
@@ -185,6 +194,9 @@ public class PublishActivity extends Activity {
 	    	case R.id.action_newnode:
 	    		createNode();
 	    		return true;
+	    	case R.id.action_deleteall:
+	    		deleteAllNodes();
+	    		return true;
 	    	case R.id.action_subscribe:
 	    		finish();
 	    		startActivity(new Intent(getBaseContext(), SubscribeActivity.class));
@@ -198,10 +210,11 @@ public class PublishActivity extends Activity {
 	    }
 	}
 	
-	private void publishNode(String nodeName,String val)
+	private void publishNode(String nodeName,String val,String val2)
 	{
 		final String fNode = nodeName;
 		final String fVal = val;
+		final String fVal2 = val2;
 		final ProgressDialog dialog = ProgressDialog.show(PublishActivity.this, "Connecting...", "Please wait...", false);
 	     Thread t = new Thread(new Runnable() {
 	      @Override
@@ -221,8 +234,13 @@ public class PublishActivity extends Activity {
 	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	          LeafNode node =  mgr.getNode(fNode);
 	          
-	          node.send(new PayloadItem("test" + System.currentTimeMillis(), 
-	     		     new SimplePayload("Value", "pubsub:" + fNode + ":Value", fVal)));
+	          //node.send(new PayloadItem("test" + System.currentTimeMillis(), 
+	     	  //	     new SimplePayload("Value", "pubsub:" + fNode + ":Value", fVal)));
+	          
+	          SimplePayload payload = new SimplePayload("review","pubsub:test:review", "<book xmlns='pubsub:test:review'><rating>" + fVal + "</rating><description>" +  fVal2 + "</description></book>");
+	          PayloadItem<SimplePayload> item = new PayloadItem<SimplePayload>("test" + System.currentTimeMillis(), payload);
+	          // Publish item
+	          node.publish(item);
 	           
 	          for (Iterator iterator = listdata.iterator(); iterator.hasNext();) {
 	        	   PubSubNodeItem NodeItem = (PubSubNodeItem) iterator.next();
@@ -360,7 +378,7 @@ public class PublishActivity extends Activity {
 		     	           LeafNode newleaf = mgr.createNode(editable.toString());//let the ID be auto assigned
 		     	           ConfigureForm form = new ConfigureForm(FormType.submit);
 		     	           form.setAccessModel(AccessModel.open);
-		     	           form.setDeliverPayloads(false);
+		     	           form.setDeliverPayloads(true);
 		     	           form.setNotifyRetract(true);
 		     	           form.setPersistentItems(true);
 		     	           form.setPublishModel(PublishModel.open);
@@ -421,9 +439,70 @@ public class PublishActivity extends Activity {
         	  
           }
         });
+	}
+        
+    public void deleteAllNodes()
+    {
+        final ProgressDialog dialog2 = ProgressDialog.show(PublishActivity.this, "Connecting...", "Please wait...", false);
+   	    Thread t = new Thread(new Runnable() {
+   	        @Override
+   	        public void run() {
+   	      
+   	           // Create a connection
+   	           ConnectionConfiguration connConfig = new ConnectionConfiguration(Constants.HOST, Constants.PORT, Constants.SERVICE);
+   	           connection = new XMPPConnection(connConfig);
+   	           try 
+   	           {
+   	               connection.connect();
+   	               Log.d("PublishActivity::deleteAllNodes",  "[SettingsDialog] Connected to "+connection.getHost());
+   	        
+   	               connection.login(Constants.USERNAME, Constants.PASSWORD, Constants.RESOURCE);
+   	               Log.d("PublishActivity::deleteAllNodes",  "Logged in as " + connection.getUser());
+   	           
+   	               // Create a pubsub manager using an existing Connection
+   	               final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+   	           
+   	               DiscoverItems nodes = mgr.discoverNodes(null);
+   	           
+   	               for (Iterator<DiscoverItems.Item> items = nodes.getItems(); items.hasNext();) {
+   	        	
+   	        	       DiscoverItems.Item i = items.next();
+   	        	       mgr.deleteNode(i.getNode());
+
+   	   				   Log.d("PublishActivity::deleteAllNodes", "Delete Node: '" + i.getNode());
+ 
+   	               }
+   	               
+   	               listdata = new ArrayList<PubSubNodeItem>();
+   	               setListAdapter(mgr);
+   	           
+
+   	           } catch (ClassCastException cce) {
+   	                    Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+   	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
+   	                    cce.printStackTrace();
+   	                    connection = null;
+   	           } catch (XMPPException ex) {
+   	                    Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+   	                    ex.printStackTrace();
+   	                    connection = null;    
+   	           } catch (Exception e) {
+   	                    //all other exceptions
+   	        	        Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+   	        	        e.printStackTrace();
+   	        	        connection = null;
+   	           }
+   	           dialog2.dismiss();
+   	      } //end of run
+   	   }); // end of thread
+
+   	  t.start();
+   	  dialog2.show();
+        	
+    }//end of deleteAlNodes
          
-	}	
-}
+		
+}// end of class
 
 		/*
 		try

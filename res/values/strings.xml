@@ -10,6 +10,7 @@
     <string name="action_newnode">Create a Category</string>
     <string name="app_name">AndroidPubSub</string>
     <string name="initTxtView">AndroidPubSub Console Output:</string>
-     <string name="subscribedState">Subscribed state</string>
+    <string name="subscribedState">Subscribed state</string>
+    <string name="action_deleteall">Delete All Categories</string>
 
 </resources>
