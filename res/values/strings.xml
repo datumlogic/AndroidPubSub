@@ -12,5 +12,6 @@
     <string name="initTxtView">AndroidPubSub Console Output:</string>
     <string name="subscribedState">Subscribed state</string>
     <string name="action_deleteall">Delete All Categories</string>
+    <string name="action_settings">Settings</string>
 
 </resources>

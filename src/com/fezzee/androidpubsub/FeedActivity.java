@@ -9,9 +9,11 @@ import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smackx.pubsub.Item;
+import org.jivesoftware.smackx.pubsub.ItemPublishEvent;
 import org.jivesoftware.smackx.pubsub.LeafNode;
 import org.jivesoftware.smackx.pubsub.PubSubManager;
 import org.jivesoftware.smackx.pubsub.Subscription;
+import org.jivesoftware.smackx.pubsub.listener.ItemEventListener;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
@@ -24,16 +26,18 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.Toast;
 
 public class FeedActivity extends Activity {
 	
 	protected static XMPPConnection connection;
+	protected static PubSubManager mgr;
 
 	private Handler mHandler = new Handler();
 	
     private ListView listview;
     
-    private ArrayList<PubSubNodeItem> listdata = new ArrayList<PubSubNodeItem>();
+    private ArrayList<PubSubItem> listdata = new ArrayList<PubSubItem>();
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -66,27 +70,30 @@ public class FeedActivity extends Activity {
 	           Log.d("FeedActivity::onCreate",  "Logged in as " + connection.getUser());
 	           
 	           // Create a pubsub manager using an existing Connection
-	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+	           mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	           
 	           
 	 	       List<Subscription> subscriptions = mgr.getSubscriptions();
-	 	       for (Iterator iterator = subscriptions.iterator(); iterator.hasNext();) {
-	 	        	  Subscription sub = (Subscription) iterator.next();
+	 	       for (Iterator<Subscription> iterator = subscriptions.iterator(); iterator.hasNext();) {
+	 	        	  Subscription sub = iterator.next();
 	 	        	  Log.i("SUBSCRIPTION",sub.getNode());
 	 	        	  //listdata.add(new PubSubNodeItem(sub.getNode()));
 	 	        	  LeafNode node = mgr.getNode(sub.getNode());
+	 	        	  //REGISTER THE LISTENERS
+	 	        	  node.addItemEventListener(new ItemEventCoordinator<Item>());     
+
 	 	        	  Collection<? extends Item> items = node.getItems();
 	 	        	  Collection<String> ids = new ArrayList<String>();
-	 	        	  for (Iterator iterator2 = items.iterator(); iterator2.hasNext();) {
-	 	        		Item item = (Item) iterator2.next();
-	 	        		Log.i("ITEM",item.getId());
+	 	        	  for (Iterator<? extends Item> iterator2 = items.iterator(); iterator2.hasNext();) {
+	 	        		Item item = iterator2.next();
+	 	        		Log.d("ITEM",item.getId());
 	 	        		ids.add(item.getId());
 	 	        	  }
 	 	        	 Collection<? extends Item> items2 = node.getItems(ids);
-	 	        	for (Iterator iterator3 = items2.iterator(); iterator3.hasNext();) {
-	 	        		Item item = (Item) iterator3.next();
-	 	        		Log.i("ITEM FULL",item.toXML());
-	 	        		listdata.add(new PubSubNodeItem(item.toXML()));
+	 	        	for (Iterator<? extends Item> iterator3 = items2.iterator(); iterator3.hasNext();) {
+	 	        		Item item = iterator3.next();
+	 	        		Log.d("ITEM FULL",item.toXML());
+	 	        		listdata.add(new PubSubItem(node.getId(), item.getId(), item.toXML()));
 	 	        	}
 	 	       }
 	 	          
@@ -95,20 +102,25 @@ public class FeedActivity extends Activity {
 	           
 
 	         } catch (ClassCastException cce) {
-	                Log.e("SubscribeActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+	                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 	                cce.printStackTrace();
+                 showToast("[Class Cast Exception] " + cce.getMessage());
 	                connection = null;
 	         } catch (XMPPException ex) {
-	                Log.e("SubscribeActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+	                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 	                ex.printStackTrace();
+	                
+	                showToast("[XMPP Exception] " + ex.getMessage());
 	                connection = null;    
 	         } catch (Exception e) {
 	              //all other exceptions
-	        	   Log.e("SubscribeActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+	        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 	        	   e.printStackTrace();
+	        	   showToast("[Unhandled Exception] " + e.getMessage());
 	        	   connection = null;
 	         }
+	         
 	         dialog2.dismiss();
 	      }
 	   }); // end of thread
@@ -147,7 +159,7 @@ public class FeedActivity extends Activity {
 	{
 		
 		Log.d("FeedActivity::setListAdapter","Entered");
-        final SubscribeListAdapter adapter = new SubscribeListAdapter(
+        final FeedListAdapter adapter = new FeedListAdapter(
         		this, R.layout.listitem_feed, listdata);
         //Log.d("SubscribeActivity::setListAdapter","here 2....");
         // Add the incoming message to the view
@@ -160,4 +172,36 @@ public class FeedActivity extends Activity {
          
 	}	//end of 'setListAdapter'
 	
-}
+	//display Toast from any thread
+  	public void showToast(final String toast)
+  	{
+  	    runOnUiThread(new Runnable() {
+  	        public void run()
+  	        {
+  	            Toast.makeText(FeedActivity.this, toast, Toast.LENGTH_LONG).show();
+  	        }
+  	    });
+  	} // end of showToast method
+  	
+  	private class ItemEventCoordinator<T>  implements ItemEventListener<Item>      
+  	{          
+  		@Override          
+  		public void handlePublishedItems(ItemPublishEvent<Item> items)          
+  		{              	
+  			Collection<? extends Item> items2 = items.getItems();
+	        for (Iterator<? extends Item> iterator3 = items2.iterator(); iterator3.hasNext();) {
+	        	Item item = iterator3.next();
+	        	Log.d(">>>",item.getId() + " : " + item.getNamespace() + " : " + item.getNode() + " : " + item.toString() );
+	        	listdata.add(new PubSubItem(items.getNodeId(), item.getId(), item.toXML()));
+	        	//item.elementName returns 'item' (cannot change?)
+	        	//item.getId returns a unique ID of the Item ('note' + timeval in our example)
+	        	//item.getNamespace returns null
+	        	//item.getNode returns null
+	        	//item.toString returns the object type (Payload) and XML
+	        }
+  			setListAdapter(mgr);
+  		}	
+  	}
+  	
+	
+} //end of Feed Activity Class

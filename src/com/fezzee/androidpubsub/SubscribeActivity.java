@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.SmackConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smackx.packet.DiscoverItems;
@@ -26,6 +27,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
+import android.widget.Toast;
 
 public class SubscribeActivity extends Activity {
 	
@@ -87,20 +89,25 @@ public class SubscribeActivity extends Activity {
 		    	       setListAdapter(mgr);
 		    	       
 			         } catch (ClassCastException cce) {
-			                Log.e("SubscribeActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+			                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 			                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 			                cce.printStackTrace();
+		                    showToast("[Class Cast Exception] " + cce.getMessage());
 			                connection = null;
 			         } catch (XMPPException ex) {
-			                Log.e("SubscribeActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+			                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 			                ex.printStackTrace();
+			                
+			                showToast("[XMPP Exception] " + ex.getMessage());
 			                connection = null;    
 			         } catch (Exception e) {
 			              //all other exceptions
-			        	   Log.e("SubscribeActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+			        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 			        	   e.printStackTrace();
+			        	   showToast("[Unhandled Exception] " + e.getMessage());
 			        	   connection = null;
 			         }
+			         
 			         dialog2.dismiss();
 			      }
 			   }); // end of thread
@@ -119,8 +126,10 @@ public class SubscribeActivity extends Activity {
 	       ConnectionConfiguration connConfig = new ConnectionConfiguration(Constants.HOST, Constants.PORT, Constants.SERVICE);
 	       connection = new XMPPConnection(connConfig);
 	         try {
+	           Log.d("SubscribeActivity::onCreate",  "[TIMEOUT] - " + SmackConfiguration.getPacketReplyTimeout());
+	        	 
 	           connection.connect();
-	           Log.d("SubscribeActivity::onCreate",  "[SettingsDialog] Connected to "+connection.getHost());
+	           Log.d("SubscribeActivity::onCreate",  "Connected to "+connection.getHost());
 	        
 	           connection.login(Constants.USERNAME, Constants.PASSWORD, Constants.RESOURCE);
 	           Log.d("SubscribeActivity::onCreate",  "Logged in as " + connection.getUser());
@@ -160,20 +169,25 @@ public class SubscribeActivity extends Activity {
 	           
 
 	         } catch (ClassCastException cce) {
-	                Log.e("SubscribeActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+	                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 	                cce.printStackTrace();
+                 showToast("[Class Cast Exception] " + cce.getMessage());
 	                connection = null;
 	         } catch (XMPPException ex) {
-	                Log.e("SubscribeActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+	                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 	                ex.printStackTrace();
+	                
+	                showToast("[XMPP Exception] " + ex.getMessage());
 	                connection = null;    
 	         } catch (Exception e) {
 	              //all other exceptions
-	        	   Log.e("SubscribeActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+	        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 	        	   e.printStackTrace();
+	        	   showToast("[Unhandled Exception] " + e.getMessage());
 	        	   connection = null;
 	         }
+	         
 	         dialog2.dismiss();
 	      }
 	   }); // end of thread
@@ -230,4 +244,15 @@ public class SubscribeActivity extends Activity {
         });
          
 	}	//end of 'setListAdapter'
+	
+	//display Toast from any thread
+  	public void showToast(final String toast)
+  	{
+  	    runOnUiThread(new Runnable() {
+  	        public void run()
+  	        {
+  	            Toast.makeText(SubscribeActivity.this, toast, Toast.LENGTH_LONG).show();
+  	        }
+  	    });
+  	}
 }

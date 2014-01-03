@@ -6,6 +6,7 @@ import java.util.Iterator;
 
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.SmackAndroid;
+import org.jivesoftware.smack.SmackConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smackx.packet.DiscoverItems;
@@ -25,8 +26,10 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.text.Editable;
 import android.util.Log;
 import android.view.Menu;
@@ -44,6 +47,8 @@ import android.widget.Toast;
 public class PublishActivity extends Activity {
 	
 	protected static XMPPConnection connection;
+	protected static PubSubManager mgr;
+	protected SmackAndroid asmk; 
 
 	private Handler mHandler = new Handler();
 	
@@ -53,18 +58,40 @@ public class PublishActivity extends Activity {
     
     Editable editable = null;
    
-
+    //INVESTIGATION- there were two ways of specifying PREFS- one using the default PREFS 
+  	//and one specifying- is there any security implications of not using default?
+  	//private static final String PREFS_NAME = "TwitterLogin";
+  	SharedPreferences settings = null;
+  	SharedPreferences.Editor editor = null;
+    
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_publish);
+		
+		
+		//settings = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);//PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+		settings = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+		editor = settings.edit();
+				
+		Constants.USERNAME = settings.getString("userName","gene4");//gene //fola
+		Constants.PASSWORD = settings.getString("userPwd","gene4");//"gene123"; //fola123
+		Constants.HOST = settings.getString("host","ec2-54-201-47-27.us-west-2.compute.amazonaws.com");//"ec2-54-201-47-27.us-west-2.compute.amazonaws.com";
+		Constants.PORT = Integer.parseInt( settings.getString("port","5222") );//5222;
+		Constants.TIMEOUT = Integer.parseInt(settings.getString("timeout","5000") );//5222;
+		Constants.SERVICE = settings.getString("service","ec2-54-201-47-27.us-west-2.compute.amazonaws.com");//"ec2-54-201-47-27.us-west-2.compute.amazonaws.com";
+		
 		//This app on the Android desktop always automatically gets the name of the first Activity 
 		//Remove the android:label for the first activity, which forces the android:label of the app to be used
 		//Finally., set the Activity Title here
-		setTitle(R.string.publish_name);
+		//setTitle(R.string.publish_name);
+		setTitle(Constants.USERNAME);
 		
 		//if you don't use this you get a ClassCastException: UnparsedResultIQ cannot be cast to DiscoverInfo
-		SmackAndroid.init(this);
+		asmk = SmackAndroid.init(this);
+		
+		//only need to do this initially
+		SmackConfiguration.setPacketReplyTimeout(Constants.TIMEOUT);
 		
 		listview = (ListView) this.findViewById(R.id.publishview);
 		listview.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -123,6 +150,8 @@ public class PublishActivity extends Activity {
 		     }
 		});
 		
+		
+		
 		final ProgressDialog dialog2 = ProgressDialog.show(PublishActivity.this, "Connecting...", "Please wait...", false);
 	     Thread t = new Thread(new Runnable() {
 	      @Override
@@ -132,21 +161,23 @@ public class PublishActivity extends Activity {
 	       ConnectionConfiguration connConfig = new ConnectionConfiguration(Constants.HOST, Constants.PORT, Constants.SERVICE);
 	       connection = new XMPPConnection(connConfig);
 	         try {
+	           Log.d("PublishActivity::onCreate",  "[TIMEOUT] - " + SmackConfiguration.getPacketReplyTimeout());
+	        	 
 	           connection.connect();
-	           Log.d("PublishActivity::onCreate",  "[SettingsDialog] Connected to "+connection.getHost());
+	           Log.d("PublishActivity::onCreate",  "Connected to "+connection.getHost());
 	        
 	           connection.login(Constants.USERNAME, Constants.PASSWORD, Constants.RESOURCE);
 	           Log.d("PublishActivity::onCreate",  "Logged in as " + connection.getUser());
 	           
 	           // Create a pubsub manager using an existing Connection
-	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+	           mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	           
 	           DiscoverItems nodes = mgr.discoverNodes(null);
 	           
 	           for (Iterator<DiscoverItems.Item> items = nodes.getItems(); items.hasNext();) {
 	        	
 	        	    DiscoverItems.Item i = items.next();
-
+	        	    Log.d("PublishActivity::onCreate", "Creating Node '" + i.getNode() + "'");
 	   			    final LeafNode node = mgr.getNode(i.getNode());
 	   			
 	   				Collection<? extends Item> items2 = node.getItems();
@@ -164,15 +195,19 @@ public class PublishActivity extends Activity {
 	                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 	                cce.printStackTrace();
+                    showToast("[Class Cast Exception] " + cce.getMessage());
 	                connection = null;
 	         } catch (XMPPException ex) {
 	                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 	                ex.printStackTrace();
+	                
+	                showToast("[XMPP Exception] " + ex.getMessage());
 	                connection = null;    
 	         } catch (Exception e) {
 	              //all other exceptions
 	        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 	        	   e.printStackTrace();
+	        	   showToast("[Unhandled Exception] " + e.getMessage());
 	        	   connection = null;
 	         }
 	         dialog2.dismiss();
@@ -181,7 +216,9 @@ public class PublishActivity extends Activity {
 
 	    t.start();
 	    dialog2.show();
-	}
+	    
+	    
+	} //end of onCreate
 
 
 	@Override
@@ -202,17 +239,48 @@ public class PublishActivity extends Activity {
 	    		deleteAllNodes();
 	    		return true;
 	    	case R.id.action_subscribe:
-	    		finish();
+	    		//finish();
 	    		startActivity(new Intent(getBaseContext(), SubscribeActivity.class));
 	    		return true;
 	    	case R.id.action_feed:
-	    		finish();
+	    		//finish();
 	    		startActivity(new Intent(getBaseContext(), FeedActivity.class));
+	    		return true;
+	    	case R.id.action_settings:
+	    		startActivity(new Intent(getBaseContext(), SettingsPreferenceActivity.class));
 	    		return true;
 	        default:
 	            return super.onOptionsItemSelected(item);
 	    }
 	}
+	
+	@Override
+	  protected void onDestroy() {
+	    super.onDestroy();
+	    Log.d("PublishActivity::onDestroy","Entered");
+	    listview.setOnItemClickListener(null);
+	    //if (connection != null) {
+		//	connection.disconnect();
+		//  	connection=null;
+		//} 
+	  }
+	
+	@Override
+    public void onPause() {
+        super.onPause();
+        Log.d("PublishActivity::onPause","Entered");
+        //listview.setOnItemClickListener(null);
+
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.d("PublishActivity::onResume","Entered");
+            if(listview != null){
+                //listview.setOnItemClickListener(exampleListener);
+             }
+    }
 	
 	private void publishNode(String nodeName,String val,String val2)
 	{
@@ -228,6 +296,7 @@ public class PublishActivity extends Activity {
 	       ConnectionConfiguration connConfig = new ConnectionConfiguration(Constants.HOST, Constants.PORT, Constants.SERVICE);
 	       connection = new XMPPConnection(connConfig);
 	         try {
+	        	 
 	           connection.connect();
 	           Log.d("PublishActivity::newNode",  "[SettingsDialog] Connected to "+connection.getHost());
 	        
@@ -235,17 +304,19 @@ public class PublishActivity extends Activity {
 	           Log.d("PublishActivity::newNode",  "Logged in as " + connection.getUser());
 	           
 	           // Create a pubsub manager using an existing Connection
-	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+	           mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	          LeafNode node =  mgr.getNode(fNode);
 	          
-	          //create payload
-	          SimplePayload payload = new SimplePayload("review","pubsub:test:review", "<book xmlns='pubsub:test:review'><rating type='choice' length='3'>" + fVal + "</rating><description type='' length='' validation='regex'>" +  fVal2 + "</description></book>");
-	          PayloadItem<SimplePayload> item = new PayloadItem<SimplePayload>("test" + System.currentTimeMillis(), payload);
-	          // Publish item
-	          node.publish(item);
+	          //'note' will need to be a reserved word that can not be used as a field name when creating a 'notification' schema
+	          //if you change the value of 'note' then you have to change getValue in PubSubItem
+	          SimplePayload payload = new SimplePayload("note","pubsub:test:note", "<note xmlns='pubsub:test:note'><rating type='choice' length='3'>" + fVal + "</rating><description type='' length='' validation='regex'>" +  fVal2 + "</description></note>");
+	          PayloadItem<SimplePayload> item2 = new PayloadItem<SimplePayload>("note" + System.currentTimeMillis(), payload);
+	          
+	          
+	          node.publish(item2);
 	           
-	          for (Iterator iterator = listdata.iterator(); iterator.hasNext();) {
-	        	   PubSubNodeItem NodeItem = (PubSubNodeItem) iterator.next();
+	          for (Iterator<PubSubNodeItem> iterator = listdata.iterator(); iterator.hasNext();) {
+	        	   PubSubNodeItem NodeItem = iterator.next();
 	        	   if (NodeItem.getNodeName().equals(fNode))
 	        	   {
 	        		   NodeItem.incrementItemCount();
@@ -255,20 +326,25 @@ public class PublishActivity extends Activity {
 	           setListAdapter(mgr);
 
 	         } catch (ClassCastException cce) {
-	                Log.e("PublishActivity::newNode", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+	                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 	                cce.printStackTrace();
+                 showToast("[Class Cast Exception] " + cce.getMessage());
 	                connection = null;
 	         } catch (XMPPException ex) {
-	                Log.e("PublishActivity::newNode", "XMPPException for '"+  Constants.USERNAME + "'");
+	                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 	                ex.printStackTrace();
+	                
+	                showToast("[XMPP Exception] " + ex.getMessage());
 	                connection = null;    
 	         } catch (Exception e) {
 	              //all other exceptions
-	        	   Log.e("PublishActivity::newNode", "Unhandled Exception"+  e.getMessage()); 
+	        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 	        	   e.printStackTrace();
+	        	   showToast("[Unhandled Exception] " + e.getMessage());
 	        	   connection = null;
 	         }
+	         
 	         dialog.dismiss();
 	      }
 	   }); // end of thread
@@ -297,7 +373,7 @@ public class PublishActivity extends Activity {
 	           Log.d("PublishActivity::newNode",  "Logged in as " + connection.getUser());
 	           
 	           // Create a pubsub manager using an existing Connection
-	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+	           mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 	           
 	           Log.d("PublishActivity::deleteNode","Deleting(2) node: " + fNode);
 	           mgr.deleteNode(fNode);
@@ -317,20 +393,25 @@ public class PublishActivity extends Activity {
 	           setListAdapter(mgr);
 
 	         } catch (ClassCastException cce) {
-	                Log.e("PublishActivity::newNode", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+	                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
 	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
 	                cce.printStackTrace();
+                 showToast("[Class Cast Exception] " + cce.getMessage());
 	                connection = null;
 	         } catch (XMPPException ex) {
-	                Log.e("PublishActivity::newNode", "XMPPException for '"+  Constants.USERNAME + "'");
+	                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
 	                ex.printStackTrace();
+	                
+	                showToast("[XMPP Exception] " + ex.getMessage());
 	                connection = null;    
 	         } catch (Exception e) {
 	              //all other exceptions
-	        	   Log.e("PublishActivity::newNode", "Unhandled Exception"+  e.getMessage()); 
+	        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
 	        	   e.printStackTrace();
+	        	   showToast("[Unhandled Exception] " + e.getMessage());
 	        	   connection = null;
 	         }
+	         
 	         dialog.dismiss();
 	      }
 	   }); // end of thread
@@ -366,7 +447,8 @@ public class PublishActivity extends Activity {
 		     	       // Create a connection
 		     	       ConnectionConfiguration connConfig = new ConnectionConfiguration(Constants.HOST, Constants.PORT, Constants.SERVICE);
 		     	       connection = new XMPPConnection(connConfig);
-		     	         try {
+		     	         try 
+		     	         {
 		     	           connection.connect();
 		     	           Log.d("PublishActivity::newNode",  "[SettingsDialog] Connected to "+connection.getHost());
 		     	        
@@ -374,7 +456,7 @@ public class PublishActivity extends Activity {
 		     	           Log.d("PublishActivity::newNode",  "Logged in as " + connection.getUser());
 		     	           
 		     	           // Create a pubsub manager using an existing Connection
-		     	           final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+		     	           mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
 		     	           
 		     	           
 		     	           LeafNode newleaf = mgr.createNode(editable.toString());//let the ID be auto assigned
@@ -390,20 +472,25 @@ public class PublishActivity extends Activity {
 		     	           setListAdapter(mgr);
 
 		     	         } catch (ClassCastException cce) {
-		     	                Log.e("PublishActivity::newNode", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
-		     	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
-		     	                cce.printStackTrace();
-		     	                connection = null;
+			                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+			                		"SmackAndroid.init(this)?\n" + cce.getMessage());
+			                cce.printStackTrace();
+		                    showToast("[Class Cast Exception] " + cce.getMessage());
+			                connection = null;
 		     	         } catch (XMPPException ex) {
-		     	                Log.e("PublishActivity::newNode", "XMPPException for '"+  Constants.USERNAME + "'");
-		     	                ex.printStackTrace();
-		     	                connection = null;    
+			                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+			                ex.printStackTrace();
+			                
+			                showToast("[XMPP Exception] " + ex.getMessage());
+			                connection = null;    
 		     	         } catch (Exception e) {
-		     	              //all other exceptions
-		     	        	   Log.e("PublishActivity::newNode", "Unhandled Exception"+  e.getMessage()); 
-		     	        	   e.printStackTrace();
-		     	        	   connection = null;
+			              //all other exceptions
+			        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+			        	   e.printStackTrace();
+			        	   showToast("[Unhandled Exception] " + e.getMessage());
+			        	   connection = null;
 		     	         }
+		     	         
 		     	         dialog2.dismiss();
 		     	      }
 		     	   }); // end of thread
@@ -430,10 +517,10 @@ public class PublishActivity extends Activity {
         //        android.R.layout.simple_list_item_1,
         //        listdata );
         
-		Log.d("PublishActivity::setListAdapter","here 1....");
+		Log.d("PublishActivity::setListAdapter","Entered");
         final PubSubNodeListAdapter adapter = new PubSubNodeListAdapter(
         		this, R.layout.listitem_publish, listdata);
-        Log.d("PublishActivity::setListAdapter","here 2....");
+        Log.d("PublishActivity::setListAdapter","Adapter created");
         // Add the incoming message to the view
         mHandler.post(new Runnable() {
           public void run() {
@@ -455,6 +542,7 @@ public class PublishActivity extends Activity {
    	           connection = new XMPPConnection(connConfig);
    	           try 
    	           {
+   	        	   
    	               connection.connect();
    	               Log.d("PublishActivity::deleteAllNodes",  "[SettingsDialog] Connected to "+connection.getHost());
    	        
@@ -462,7 +550,8 @@ public class PublishActivity extends Activity {
    	               Log.d("PublishActivity::deleteAllNodes",  "Logged in as " + connection.getUser());
    	           
    	               // Create a pubsub manager using an existing Connection
-   	               final PubSubManager mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+   	               mgr = new PubSubManager(connection,"pubsub." + Constants.HOST);
+   	               
    	           
    	               DiscoverItems nodes = mgr.discoverNodes(null);
    	           
@@ -478,23 +567,28 @@ public class PublishActivity extends Activity {
    	               listdata = new ArrayList<PubSubNodeItem>();
    	               setListAdapter(mgr);
    	           
-
-   	           } catch (ClassCastException cce) {
-   	                    Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
-   	                		"SmackAndroid.init(this)?\n" + cce.getMessage());
-   	                    cce.printStackTrace();
-   	                    connection = null;
-   	           } catch (XMPPException ex) {
-   	                    Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
-   	                    ex.printStackTrace();
-   	                    connection = null;    
-   	           } catch (Exception e) {
-   	                    //all other exceptions
-   	        	        Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
-   	        	        e.printStackTrace();
-   	        	        connection = null;
-   	           }
-   	           dialog2.dismiss();
+   	        } catch (ClassCastException cce) {
+                Log.e("PublishActivity::onCreate", "Did you register Smack's XMPP Providers and Extensions in advance? - " +
+                		"SmackAndroid.init(this)?\n" + cce.getMessage());
+                cce.printStackTrace();
+                showToast("[Class Cast Exception] " + cce.getMessage());
+                connection = null;
+   	        } catch (XMPPException ex) {
+                Log.e("PublishActivity::onCreate", "XMPPException for '"+  Constants.USERNAME + "'");
+                ex.printStackTrace();
+                
+                showToast("[XMPP Exception] " + ex.getMessage());
+                connection = null;    
+   	        } catch (Exception e) {
+              //all other exceptions
+        	   Log.e("PublishActivity::onCreate", "Unhandled Exception"+  e.getMessage()); 
+        	   e.printStackTrace();
+        	   showToast("[Unhandled Exception] " + e.getMessage());
+        	   connection = null;
+   	        }
+   	           
+   	        connection = null;
+   	        dialog2.dismiss();
    	      } //end of run
    	   }); // end of thread
 
@@ -503,70 +597,17 @@ public class PublishActivity extends Activity {
         	
     }//end of deleteAlNodes
          
+    
+  //display Toast from any thread
+  	public void showToast(final String toast)
+  	{
+  	    runOnUiThread(new Runnable() {
+  	        public void run()
+  	        {
+  	            Toast.makeText(PublishActivity.this, toast, Toast.LENGTH_LONG).show();
+  	        }
+  	    });
+  	}
 		
 }// end of class
-
-		/*
-		try
-		{
-		
-		     //**************delete node**************
-		     //mgr.deleteNode("testNode3");
-		     	            
-		     //you'll get an exception if you try to create a node that already exists
-		     //LeafNode leaf = (LeafNode)mgr.createNode("testNode3", form);
-		     	          
-		     	           
-		     //mgr.getSupportedFeatures();
-		     //mgr.discoverNodes(null);
-		     //leaf.addItemEventListener(mHandler);
-		     	           
-		     	           
-		     // Publish an Item with the specified id
-		     //leaf.send(new Item("123abc"));
-		     	           
-		     // Publish an Item with payload
-		     newleaf.send(new PayloadItem("test" + System.currentTimeMillis(), 
-		     new SimplePayload("book", "pubsub:test:book", "")));
-		     // Publish an Item, let service set the id
-		     //newleaf.send(new Item());
-
-			DiscoverItems nodes = mgr.discoverNodes(null);
-			//Iterator<DiscoverItems.Item> items = nodes.getItems();
-			for (Iterator<DiscoverItems.Item> items = nodes.getItems(); items.hasNext();) {
-				LeafNode node = mgr.getNode(items.next().getNode());
-				final String val = node.getId();
-				Log.d("PublishActivity::setListAdapter", "Node> " + val);
-     	   
-				// Add the incoming message to the view
-	            //mHandler.post(new Runnable() {
-	            //  public void run() {
-	            	  //textMessage.setText(textMessage.getText() + "\n> * " + val);
-	            //  }
-	            //});
-	            
-	            //mgr.deleteNode(val);
-     	   
-     	   
-	            Collection<? extends org.jivesoftware.smackx.pubsub.Item> items2 = node.getItems();
-	           
-	            for (org.jivesoftware.smackx.pubsub.Item o: items2) {
-
-	            	final String val2 = o.getId();//o.toXML()
-	            	Log.d("PublishActivity::setListAdapter", "Item> " + val2 );
-	        	   
-	        	    // Add the incoming message to the view
-		            //mHandler.post(new Runnable() {
-		            //  public void run() {
-		            	  //textMessage.setText(textMessage.getText() + "\n>>    " + val2);
-		            //  }
-		            //});
-	           }
-	            
-			} 
-		}
-			
-	    */
-	
-	
 

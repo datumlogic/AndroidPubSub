@@ -17,7 +17,8 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <activity
-            android:name="com.fezzee.androidpubsub.PublishActivity">
+            android:name="com.fezzee.androidpubsub.PublishActivity"
+            android:screenOrientation="portrait" >
             <!--   android:label="@string/publish_name" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -26,7 +27,8 @@
         </activity>
         <activity
             android:name="com.fezzee.androidpubsub.SubscribeActivity"
-            android:label="@string/subscribe_name" >
+            android:label="@string/subscribe_name" 
+            android:screenOrientation="portrait" >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />
@@ -35,8 +37,17 @@
         </activity>
         <activity
             android:name="com.fezzee.androidpubsub.FeedActivity"
-            android:label="@string/feed_name" >
+            android:label="@string/feed_name" 
+            android:screenOrientation="portrait" >
             <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.fezzee.androidpubsub.SettingsPreferenceActivity"
+                  android:screenOrientation="portrait" >
+            <intent-filter> 
                 <action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

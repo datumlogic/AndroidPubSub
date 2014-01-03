@@ -6,9 +6,9 @@ package com.fezzee.androidpubsub;
 public class PubSubNodeItem {
 	private String nodeName;
 	private int itemCount;
-	private int subscriptionState;
+	private int subscriptionState; //holds the image resource that denotes Subscribed or Unsubscribed
 	private String inputXML;//
-	private String payloadXML;
+	
 	
 	public PubSubNodeItem(String nodeName, int itemCount)
 	{
